@@ -1,18 +1,17 @@
-const express = require('express');
-const router = express.Router();
-const bodyParser = require('body-parser');
 const path = require('path');
-const rootDir = require('../util/path'); 
+const express = require('express')
+const adminController = require('../controllers/admin');
+const router = express.Router();
 
-router.use(bodyParser.urlencoded({extended: false}));
+// /admin/add-product => GET
+router.get('/add-product', adminController.getAddProduct);
 
-router.use('/add-product', (req, res, next) =>{
-    res.sendFile(path.join(rootDir,'views','add-product.html'));
-});
+// /admin/add-product => POST
+router.post('/add-product', adminController.postAddProduct);
 
-router.post('/product',(req, res, next)=>{
-    console.log(JSON.parse(JSON.stringify(req.body)));
-    res.redirect('/');
-});
+// /admin/products => GET
+router.get('/products', adminController.getProducts);
+
+router.get('/edit-product/:productId', adminController.getEditProduct);
 
 module.exports = router;
