@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { deleteProduct } = require('./cart');
+const Cart = require('./cart');
+const db = require('../util/database');
 
 const p = path.join(
   path.dirname(process.mainModule.filename),
@@ -9,17 +12,22 @@ const p = path.join(
 
 const getProductsFromFile = cb => {
   fs.readFile(p, (err, fileContent) => {
-    if (err || fileContent.length===0) {
+    if (err) {
       cb([]);
     } else {
-      cb(JSON.parse(fileContent));
+      if (fileContent.length) {
+        const content = JSON.parse(fileContent);
+        cb(content);
+      }
+      else cb([]);
     }
   });
 };
 
 module.exports = class Product {
-  constructor(title, imageUrl, description, price) {
-    this.id = Math.random().toString();
+  constructor(id, title, imageUrl, description, price) {
+    if (id)
+      this.id = id.toString();
     this.title = title;
     this.imageUrl = imageUrl;
     this.description = description;
@@ -27,23 +35,30 @@ module.exports = class Product {
   }
 
   save() {
+    return db.execute("insert into products (title, price, description, imageUrl) VALUES(?, ?, ?, ?)",
+    [this.title, this.price, this.description,  this.imageUrl]
+    );
+  }
+
+  static delete(id) {
     getProductsFromFile(products => {
-      products.push(this);
-      fs.writeFile(p, JSON.stringify(products, null, '\t'), err => {
+      const deletingProduct = products.find(item => item.id === id);
+      const updatedProducts = products.filter(item => item.id !== id);
+      fs.writeFile(p, JSON.stringify(updatedProducts, null, '\t'), err => {
         console.log(err);
+        if (!err) {
+          Cart.deleteProduct(id, deletingProduct.price);
+        }
       });
     });
   }
 
-  static fetchAll(cb) {
-    getProductsFromFile(cb);
+  static fetchAll() {
+    return db.execute("select * from products");
   }
 
-  static fetchbyId(id, cb){
-    getProductsFromFile(products => {
-            const product = products.find(p=>p.id === id);
-            cb(product);
-      });
+  static fetchbyId(id) {
+    return db.execute("select * from products where products.id=?",[id]);
   }
-  
+
 };
