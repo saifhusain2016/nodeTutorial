@@ -1,32 +1,26 @@
 const Product = require('../models/product');
-const Cart = require('../models/cart');
 
 exports.getProducts = (req, res, next) => {
-  Product.fetchAll()
-    .then(([rows, metaData]) => {
-      console.log("-----------------------");
-      console.log("successfully fetched data from database");
-      console.log("-----------------------");
+  Product.findAll()
+    .then(products => {
       res.render('shop/product-list', {
-        prods: rows,
-        pageTitle: 'All Products',
-        path: '/products'
+        prods: products,
+        pageTitle: 'Shop',
+        path: '/'
       });
-    }).catch(err => {
+    })
+    .catch(err => {
       console.log(err);
     });
 };
 
 exports.getProduct = (req, res, next) => {
   const id = req.params.productId;
-  Product.fetchbyId(id)
-    .then(([result, data]) => {
-      console.log("product deteails fetched successfully ",id, " ", result[0].id);
-      console.log(result[0]);
-      console.log("-----------------------------------------------------");
+  Product.findById(id)
+    .then(product => {
       res.render('shop/product-detail', {
-        product: result[0],
-        pageTitle: result[0].title,
+        product: product,
+        pageTitle: product.title,
         path: '/'
       });
     })
@@ -36,50 +30,55 @@ exports.getProduct = (req, res, next) => {
 }
 
 exports.getIndex = (req, res, next) => {
-  Product.fetchAll(products => {
-    res.render('shop/index', {
-      prods: products,
-      pageTitle: 'Shop',
-      path: '/'
+  Product.findAll()
+    .then(products => {
+      res.render('shop/index', {
+        prods: products,
+        pageTitle: 'Shop',
+        path: '/'
+      });
+    })
+    .catch(err => {
+      console.log(err);
     });
-  });
 };
 
 exports.getCart = (req, res, next) => {
-  Cart.getCartProducts(cart => {
-    Product.fetchAll(products => {
-      const cartProducts = [];
-      for (product of products) {
-        const matchedProduct = cart.products.find(item => item.id === product.id);
-        if (matchedProduct) {
-          cartProducts.push({ product: product, qty: matchedProduct.qty });
-        }
-      }
+  req.user.getCart()
+    .then(cart => {
       res.render('shop/cart', {
-        pageTitle: 'Shop',
-        path: '/',
-        cartProducts: cartProducts,
-        totalPrice: cart.price
-      })
-    });
-
-  });
+        products: cart,
+        pageTitle: 'Shop Cart',
+        path: '/'
+      });
+    })
 };
 
 exports.postCart = (req, res, next) => {
   const id = req.body.productId;
-  Product.fetchbyId(id, product => {
-    console.log(product);
-    Cart.addProduct(id, product.price);
-  })
-  res.redirect('/cart');
+  Product.findById(id)
+    .then(product => {
+      return req.user.addToCart(product);
+    })
+    .then(result => {
+      console.log("product added to cart successfully .. ");
+      res.redirect('/cart');
+    })
+    .catch(err => {
+      console.log(err);
+    })
+
 };
 
 exports.getOrders = (req, res, next) => {
-  res.render('shop/orders', {
-    path: '/orders',
-    pageTitle: 'Your Orders'
+  req.user.getOrders().then(orders=>{
+    res.render('shop/orders', {
+      path: '/orders',
+      pageTitle: 'Your Orders',
+      orders: orders
+    });
   });
+  
 };
 
 exports.getCheckout = (req, res, next) => {
@@ -90,11 +89,23 @@ exports.getCheckout = (req, res, next) => {
 };
 
 exports.deleteCartItem = (req, res, next) => {
-  Cart.getCartProducts(cart => {
-    const id = req.body.productId;
-    Product.fetchbyId(id, product => {
-      Cart.deleteProduct(id, product.price);
-      res.redirect('/cart');
+  const id = req.body.productId;
+  Product.findById(id)
+    .then(product => {
+      return req.user.deleteItemFromCart(product);
+    })
+    .then(result => {
+      console.log("product deleted from cart successfully .. ");
+      res.redirect("/cart");
+    })
+    .catch(err => {
+      console.log(err);
     });
-  });
+}
+
+exports.postCreateOrder = (req, res, next) =>{
+    req.user.addOrder()
+    .then(result=>{
+      res.redirect("/products");
+    });
 }
